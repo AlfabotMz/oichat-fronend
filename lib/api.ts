@@ -1,0 +1,106 @@
+const API_BASE_URL = "https://api.alfabot.icu"
+
+class ApiClient {
+  private baseURL: string
+
+  constructor(baseURL: string) {
+    this.baseURL = baseURL
+  }
+
+  private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const url = `${this.baseURL}${endpoint}`
+
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+      ...options,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `API Error: ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  // Agent endpoints
+  async createAgent(data: {
+    userId: string
+    status: "ACTIVE" | "INACTIVE"
+    name: string
+    description: string
+    prompt: string
+  }) {
+    return this.request("/api/agent/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getAgent(id: string) {
+    return this.request(`/api/agent/${id}`)
+  }
+
+  async updateAgent(
+    id: string,
+    data: {
+      status?: "ACTIVE" | "INACTIVE"
+      name?: string
+      description?: string
+      prompt?: string
+    },
+  ) {
+    return this.request(`/api/agent/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteAgent(id: string) {
+    return this.request(`/api/agent/${id}`, {
+      method: "DELETE",
+    })
+  }
+
+  // Conversation endpoints
+  async sendMessage(
+    agentId: string,
+    data: {
+      id: string
+      content: string
+      fromMe: boolean
+      conversationId: string
+    },
+  ) {
+    return this.request(`/api/agent/conversation/${agentId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteConversation(agentId: string, conversationId: string) {
+    return this.request(`/api/agent/conversation/${agentId}/${conversationId}`, {
+      method: "DELETE",
+    })
+  }
+
+  // WhatsApp endpoints
+  async createWhatsAppInstance(data: {
+    instance: string
+    agentId: string
+  }) {
+    return this.request("/api/whatsapp/create", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async checkWhatsAppConnection(instanceName: string) {
+    return this.request(`/api/whatsapp/check/${instanceName}`)
+  }
+}
+
+export const apiClient = new ApiClient(API_BASE_URL)
