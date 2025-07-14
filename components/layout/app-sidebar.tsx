@@ -18,6 +18,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -30,15 +31,16 @@ const items = [
     url: "/dashboard",
     icon: BarChart3,
   },
-  {
-    title: "Atendimentos",
-    url: "/conversations",
-    icon: MessageSquare,
-  },
+  
   {
     title: "Leads",
     url: "/leads",
     icon: Users,
+  },
+  {
+    title: "Chat",
+    url: "/chat",
+    icon: MessageSquare,
   },
   {
     title: "Atendents",
@@ -56,6 +58,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { toast } = useToast()
+  const { setOpenMobile } = useSidebar()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -103,7 +106,6 @@ export function AppSidebar() {
       variant="sidebar"
       className={cn(
         "bg-gray-900 text-gray-200 border-r border-gray-800",
-        "hidden md:flex flex-col", // Responsivo: oculta em mobile
         "transition-all duration-300 ease-in-out",
         isCollapsed ? "w-20" : "w-72"
       )}
@@ -127,19 +129,18 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.url}
-                    className={cn(
-                      "h-11 text-sm font-medium hover:bg-gray-700 hover:text-white",
-                      isCollapsed ? "justify-center" : "justify-start"
-                    )}
-                  >
-                    <Link href={item.url}>
+                  <Link href={item.url} onClick={() => setOpenMobile(false)}>
+                    <SidebarMenuButton
+                      isActive={pathname === item.url}
+                      className={cn(
+                        "h-11 text-sm font-medium hover:bg-gray-700 hover:text-white",
+                        isCollapsed ? "justify-center" : "justify-start"
+                      )}
+                    >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       {!isCollapsed && <span className="ml-3">{item.title}</span>}
-                    </Link>
-                  </SidebarMenuButton>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -177,14 +178,7 @@ export function AppSidebar() {
               {!isCollapsed && "Sair"}
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="w-full h-12 hover:bg-gray-700 hover:text-white"
-            >
-              <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>

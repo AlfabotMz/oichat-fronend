@@ -31,7 +31,7 @@ export async function GET(
     // Simular verificação de status (você pode integrar com API real do WhatsApp)
     // Por enquanto, vamos simular que a conexão foi estabelecida após alguns segundos
     const timeSinceCreation = Date.now() - new Date(connection.created_at).getTime()
-    const isConnected = timeSinceCreation > 10000 // 10 segundos após criação
+    const isConnected = timeSinceCreation > (Math.random() * 10000 + 10000)
 
     // Se conectado, atualizar status
     if (isConnected && connection.status === "PENDING") {
