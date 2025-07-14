@@ -23,6 +23,17 @@ export interface WhatsAppInstance {
   isConnected: boolean
 }
 
+export interface WhatsAppConnection {
+  id: string;
+  user_id: string;
+  agent_id: string;
+  instance_name: string;
+  connection_code: string | null;
+  status: "PENDING" | "CONNECTED" | "DISCONNECTED" | "ERROR";
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ApiError {
   error: string
   details?: Record<string, string>

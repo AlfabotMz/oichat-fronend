@@ -22,8 +22,10 @@ class ApiClient {
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.error || `API Error: ${response.status}`)
+      const errorData = await response.json().catch(() => ({}));
+      const error = new Error(errorData.error || `API Error: ${response.status}`);
+      (error as any).data = errorData; // Attach the full errorData
+      throw error;
     }
 
     return response.json()
@@ -96,14 +98,11 @@ class ApiClient {
     })
   }
 
-  async generateWhatsAppCode(agentId: string): Promise<{ code: string; instance: string }> {
-    return this.request(`/api/whatsapp/generate-code/${agentId}`, {
+  async connectWhatsApp(instance: string): Promise<{ data: { pairingCode: string; code: string; count: number } }> {
+    return this.request("/api/whatsapp/connect", {
       method: "POST",
+      body: JSON.stringify({ instance }),
     })
-  }
-
-  async checkWhatsAppStatus(instance: string): Promise<{ isConnected: boolean; status: string }> {
-    return this.request(`/api/whatsapp/status/${instance}`)
   }
 
   // Lead endpoints

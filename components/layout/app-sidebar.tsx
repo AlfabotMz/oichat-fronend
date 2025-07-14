@@ -136,6 +136,7 @@ export function AppSidebar() {
                       isCollapsed ? "justify-center" : "justify-start"
                     )}
                     onClick={() => {
+                      console.log(`Sidebar item clicked: ${item.title}`)
                       router.push(item.url)
                       setOpenMobile(false)
                     }}

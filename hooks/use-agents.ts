@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
+import { apiClient } from "@/lib/api"
 
 export function useAgent(id: string) {
   const supabase = createClient()
@@ -120,8 +121,9 @@ export function useUpdateAgent() {
       if (error) throw error
       return agent
     },
-    onSuccess: () => {
+    onSuccess: (updatedAgent) => {
       queryClient.invalidateQueries({ queryKey: ["agents"] })
+      queryClient.invalidateQueries({ queryKey: ["agent", updatedAgent.id] })
     },
   })
 }
@@ -152,56 +154,85 @@ export function useDeleteAgent() {
   })
 }
 
-export function useGenerateWhatsAppCode() {
+
+
+export function useCreateWhatsAppInstance() {
   return useMutation({
-    mutationFn: async (agentId: string) => {
-      const response = await fetch(`/api/whatsapp/generate-code/${agentId}`, {
+    mutationFn: async (data: { instance: string; agentId: string }) => {
+      const response = await fetch("/api/whatsapp/create-instance", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-      })
+        body: JSON.stringify(data),
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Erro ao gerar código")
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create WhatsApp instance");
       }
 
-      return response.json()
+      return response.json();
     },
-  })
+  });
 }
 
-export function useCheckWhatsAppStatus() {
+export function useConnectWhatsApp() {
   return useMutation({
-    mutationFn: async (instance: string) => {
-      const response = await fetch(`/api/whatsapp/status/${instance}`)
+    mutationFn: async (data: { instance: string; agentId: string }) => {
+      const response = await fetch("/api/whatsapp/connect-instance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Erro ao verificar status")
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to connect WhatsApp");
       }
 
-      return response.json()
+      return response.json();
     },
-  })
+  });
 }
 
-export function useCheckWhatsAppInstance(agentId: string) {
-  const supabase = createClient()
+export function useCheckWhatsAppConnectionStatus(instanceName: string) {
+  return useQuery({
+    queryKey: ["whatsapp-connection-status", instanceName],
+    queryFn: async () => {
+      const response = await fetch(`/api/whatsapp/status-instance/${instanceName}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to check WhatsApp connection status");
+      }
+
+      return response.json();
+    },
+    enabled: !!instanceName,
+    refetchInterval: 5000, // Poll every 5 seconds
+  });
+}
+
+export function useWhatsAppConnection(agentId: string) {
+  const supabase = createClient();
 
   return useQuery({
-    queryKey: ["whatsapp-instance-check", agentId],
+    queryKey: ["whatsapp-connection", agentId],
     queryFn: async () => {
-      const response = await fetch(`/api/whatsapp/instance-check/${agentId}`)
+      const { data, error } = await supabase
+        .from('whatsapp_connections')
+        .select('*')
+        .eq('agent_id', agentId)
+        .single();
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Erro ao verificar instância do WhatsApp")
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+        throw error;
       }
-
-      return response.json()
+      return data;
     },
     enabled: !!agentId,
-  })
+  });
 }

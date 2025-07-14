@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useUser } from "@/hooks/use-user"
+import { apiClient } from "@/lib/api"
 
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -46,23 +47,40 @@ export function ChatInterface() {
     scrollToBottom()
   }, [messages])
 
-  // Load messages from localStorage on component mount or agent change
+  // Load messages and selected agent from localStorage on component mount or user change
   useEffect(() => {
-    console.log("useEffect [selectedAgent, user?.id] triggered for loading messages.")
-    if (user?.id && selectedAgent) {
-      const storedMessages = localStorage.getItem(localStorageKey)
-      console.log(`Loading messages for key: ${localStorageKey}`)
-      if (storedMessages) {
-        setMessages(JSON.parse(storedMessages))
-        console.log("Messages loaded from localStorage:", JSON.parse(storedMessages))
-      } else {
-        setMessages([])
-        console.log("No messages found in localStorage, setting to empty array.")
+    console.log("useEffect [user?.id] triggered for loading messages and selected agent.")
+    if (user?.id) {
+      const storedSelectedAgent = localStorage.getItem(`selected_agent_${user.id}`)
+      if (storedSelectedAgent) {
+        setSelectedAgent(storedSelectedAgent)
+        console.log("Selected agent loaded from localStorage:", storedSelectedAgent)
+      }
+
+      if (selectedAgent) { // Only load messages if an agent is selected
+        const storedMessages = localStorage.getItem(localStorageKey)
+        console.log(`Loading messages for key: ${localStorageKey}`)
+        if (storedMessages) {
+          setMessages(JSON.parse(storedMessages))
+          console.log("Messages loaded from localStorage:", JSON.parse(storedMessages))
+        } else {
+          setMessages([])
+          console.log("No messages found in localStorage, setting to empty array.")
+        }
       }
     } else {
-      console.log("User ID or selected agent not available for loading messages.", { userId: user?.id, selectedAgent })
+      console.log("User ID not available for loading messages and selected agent.", { userId: user?.id })
     }
-  }, [selectedAgent, user?.id, localStorageKey])
+  }, [user?.id, localStorageKey, selectedAgent]) // Add selectedAgent to dependencies to re-run when it changes internally
+
+  // Save selected agent to localStorage whenever it changes
+  useEffect(() => {
+    console.log("useEffect [selectedAgent, user?.id] triggered for saving selected agent.")
+    if (user?.id && selectedAgent) {
+      localStorage.setItem(`selected_agent_${user.id}`, selectedAgent)
+      console.log("Selected agent saved to localStorage:", selectedAgent)
+    }
+  }, [selectedAgent, user?.id])
 
   // Save messages to localStorage whenever they change
   useEffect(() => {
@@ -76,17 +94,28 @@ export function ChatInterface() {
     }
   }, [messages, selectedAgent, user?.id, localStorageKey])
 
-  // Fetch agents
+  // Fetch agents and set default selected agent
   useEffect(() => {
     const fetchAgents = async () => {
       if (!user?.id) return; // Only fetch if user ID is available
 
       try {
-        // Assuming the API endpoint can filter agents by user ID
         const response = await fetch(`/api/agents?userId=${user.id}`);
         if (response.ok) {
           const data = await response.json();
           setAgents(data);
+
+          // If no agent is selected or the selected agent is no longer in the list,
+          // select the first agent from the fetched list.
+          if (!selectedAgent || !data.some((agent: any) => agent.id === selectedAgent)) {
+            if (data.length > 0) {
+              setSelectedAgent(data[0].id);
+              console.log("Defaulting selected agent to:", data[0].id);
+            } else {
+              setSelectedAgent(null);
+              console.log("No agents available.");
+            }
+          }
         } else {
           console.error("Failed to fetch agents:", response.statusText);
         }
@@ -95,7 +124,7 @@ export function ChatInterface() {
       }
     };
     fetchAgents();
-  }, [user?.id]); // Re-run when user ID changes
+  }, [user?.id, selectedAgent]); // Re-run when user ID or selectedAgent changes
 
   const handleSend = async () => {
     console.log("handleSend called.")
@@ -118,30 +147,13 @@ export function ChatInterface() {
     setIsAgentTyping(true) // Agente começa a "digitar"
 
     try {
-      const response = await fetch(`/api/agent/conversations/${selectedAgent}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: userMessage.text,
-          userId: user.id,
-        }),
+      const agentWebMessage = await apiClient.sendMessage(selectedAgent, {
+        id: userMessage.id,
+        content: userMessage.text,
+        fromMe: true,
+        conversationId: localStorageKey, // Usando a chave do localStorage como ID da conversa
       })
 
-      if (!response.ok) {
-        console.error("Error sending message to agent:", response.statusText)
-        // Optionally, revert UI message if sending fails
-        setMessages((prevMessages) => {
-          const filtered = prevMessages.filter((msg) => msg.id !== userMessage.id)
-          console.log("API error: Removing user message. New messages state:", filtered)
-          return filtered
-        })
-        setIsAgentTyping(false) // Parar de "digitar" em caso de erro
-        return
-      }
-
-      const agentWebMessage: WebMessage = await response.json()
       const agentMessage: Message = {
         ...agentWebMessage,
         isUser: false,
@@ -170,10 +182,11 @@ export function ChatInterface() {
       setIsAgentTyping(false) // Agente para de "digitar"
       console.log("Agent message streamed and added:", agentMessage)
     } catch (error) {
-      console.error("Error calling agent API:", error)
+      console.error("Error sending message to agent:", error)
+      // Optionally, revert UI message if sending fails
       setMessages((prevMessages) => {
         const filtered = prevMessages.filter((msg) => msg.id !== userMessage.id)
-        console.log("Catch block error: Removing user message. New messages state:", filtered)
+        console.log("API error: Removing user message. New messages state:", filtered)
         return filtered
       })
       setIsAgentTyping(false) // Parar de "digitar" em caso de erro
