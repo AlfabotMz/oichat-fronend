@@ -15,7 +15,7 @@ function ReactQueryDevtoolsWrapper() {
 
   if (!isClient) return null
 
-  // Import dinâmico apenas no cliente
+  // Import dinâmico apenas no client
   const ReactQueryDevtools = React.lazy(() => 
     import("@tanstack/react-query-devtools").then(module => ({
       default: module.ReactQueryDevtools
