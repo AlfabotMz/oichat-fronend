@@ -1,10 +1,9 @@
 "use client"
 
-import type React from "react"
+import React, { useState, useEffect } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { useState, useEffect } from "react"
 
 // Componente condicional para ReactQueryDevtools
 function ReactQueryDevtoolsWrapper() {
