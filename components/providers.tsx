@@ -2,10 +2,33 @@
 
 import type React from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+
+// Componente condicional para ReactQueryDevtools
+function ReactQueryDevtoolsWrapper() {
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  if (!isClient) return null
+
+  // Import dinâmico apenas no cliente
+  const ReactQueryDevtools = React.lazy(() => 
+    import("@tanstack/react-query-devtools").then(module => ({
+      default: module.ReactQueryDevtools
+    }))
+  )
+
+  return (
+    <React.Suspense fallback={null}>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </React.Suspense>
+  )
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -27,7 +50,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         {children}
         <Toaster />
       </ThemeProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
+      <ReactQueryDevtoolsWrapper />
     </QueryClientProvider>
   )
 }

@@ -15,9 +15,6 @@ export default function DashboardLayout({
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <div className="hidden md:block">
-            <TopNavbar />
-          </div>
           <MobileNav />
           <main className="flex-1 space-y-4 p-4 md:p-8 pt-6">{children}</main>
         </SidebarInset>

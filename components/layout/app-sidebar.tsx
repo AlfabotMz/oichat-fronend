@@ -1,9 +1,11 @@
 "use client"
 
-import { MessageSquare, BarChart3, Users, Send, Bot, FileText, Settings, LogOut } from "lucide-react"
+import { BarChart3, Bot, ChevronLeft, LogOut, MessageSquare, Settings, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
+import type { User } from "@supabase/supabase-js"
+import { createClient } from "@/lib/supabase/client"
 
 import {
   Sidebar,
@@ -19,8 +21,8 @@ import {
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useMockSession } from "@/hooks/use-mock-session"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 const items = [
   {
@@ -34,24 +36,14 @@ const items = [
     icon: MessageSquare,
   },
   {
-    title: "Contatos",
-    url: "/contacts",
+    title: "Leads",
+    url: "/leads",
     icon: Users,
   },
   {
-    title: "Disparos",
-    url: "/broadcasts",
-    icon: Send,
-  },
-  {
-    title: "Automação",
+    title: "Atendents",
     url: "/agents",
     icon: Bot,
-  },
-  {
-    title: "Relatórios",
-    url: "/reports",
-    icon: FileText,
   },
   {
     title: "Configurações",
@@ -63,58 +55,89 @@ const items = [
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { data: session, signOut } = useMockSession()
   const { toast } = useToast()
-  const [mounted, setMounted] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const supabase = createClient()
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    const getUser = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (session) {
+          setUser(session.user)
+        }
+      } catch (error) {
+        console.error("Error fetching user session:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    getUser()
+  }, [supabase.auth])
 
   const handleSignOut = async () => {
     try {
-      signOut()
+      await supabase.auth.signOut()
       toast({
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso.",
       })
+      router.refresh()
       router.push("/auth/login")
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Erro ao fazer logout.",
+        description: "Não foi possível fazer o logout. Tente novamente.",
         variant: "destructive",
       })
     }
   }
 
-  if (!mounted) {
-    return null
-  }
-
   return (
-    <Sidebar variant="sidebar" className="border-r border-border/40">
+    <Sidebar
+      variant="sidebar"
+      className={cn(
+        "bg-gray-900 text-gray-200 border-r border-gray-800",
+        "hidden md:flex flex-col", // Responsivo: oculta em mobile
+        "transition-all duration-300 ease-in-out",
+        isCollapsed ? "w-20" : "w-72"
+      )}
+    >
       <SidebarHeader>
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
             <MessageSquare className="h-5 w-5 text-primary-foreground" />
           </div>
-          <div className="grid flex-1 text-left">
-            <span className="text-lg font-bold text-foreground">OiChat</span>
-          </div>
+          {!isCollapsed && (
+            <div className="grid flex-1 text-left">
+              <span className="text-lg font-bold text-white">OiChat</span>
+            </div>
+          )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="flex-1 overflow-y-auto">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={pathname === item.url} className="h-11 text-sm font-medium">
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.url}
+                    className={cn(
+                      "h-11 text-sm font-medium hover:bg-gray-700 hover:text-white",
+                      isCollapsed ? "justify-center" : "justify-start"
+                    )}
+                  >
                     <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="ml-3">{item.title}</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -124,29 +147,46 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="mt-auto">
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="px-2 py-2 space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">{session?.user?.name || "Usuário"}</p>
-                  <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
+            {!isCollapsed && !isLoading && (
+              <div className="px-4 py-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-white">
+                      {user?.user_metadata?.full_name || "Usuário"}
+                    </p>
+                    <p className="text-xs text-gray-400">{user?.email}</p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {/* TODO: Get plan from user metadata */}
+                    PRO
+                  </Badge>
                 </div>
-                <Badge variant="secondary" className="text-xs">
-                  {session?.user?.plan || "FREE"}
-                </Badge>
               </div>
-              <Button variant="ghost" className="w-full justify-start h-9 text-sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
-              </Button>
-            </div>
+            )}
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className="w-full justify-start h-11 text-sm hover:bg-gray-700 hover:text-white"
+              onClick={handleSignOut}
+              disabled={isLoading}
+            >
+              <LogOut className={cn("h-5 w-5", !isCollapsed && "mr-3")} />
+              {!isCollapsed && "Sair"}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="w-full h-12 hover:bg-gray-700 hover:text-white"
+            >
+              <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
-
-      <SidebarRail />
     </Sidebar>
   )
 }

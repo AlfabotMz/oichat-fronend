@@ -1,35 +1,31 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useMockSession } from "@/hooks/use-mock-session"
 import { Loader2 } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 export default function HomePage() {
-  const { data: session, isPending } = useMockSession()
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (mounted && !isPending) {
+    const supabase = createClient()
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       if (session) {
         router.push("/dashboard")
       } else {
         router.push("/auth/login")
       }
     }
-  }, [session, isPending, router, mounted])
 
-  if (!mounted) {
-    return null
-  }
+    checkSession()
+  }, [router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center">
       <Loader2 className="h-8 w-8 animate-spin" />
     </div>
   )

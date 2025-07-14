@@ -1,5 +1,8 @@
 const API_BASE_URL = "https://api.alfabot.icu"
 
+import type { Agent } from "@/lib/types"
+import type { User, Lead, Conversion } from "@/lib/supabase"
+
 class ApiClient {
   private baseURL: string
 
@@ -40,6 +43,10 @@ class ApiClient {
     })
   }
 
+  async getAgents(): Promise<Agent[]> {
+    return this.request("/api/agents")
+  }
+
   async getAgent(id: string) {
     return this.request(`/api/agent/${id}`)
   }
@@ -63,6 +70,54 @@ class ApiClient {
     return this.request(`/api/agent/${id}`, {
       method: "DELETE",
     })
+  }
+
+  // User endpoints
+  async getUser(): Promise<User> {
+    return this.request("/api/user")
+  }
+
+  async updateUser(data: Partial<User>): Promise<User> {
+    return this.request("/api/user", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteUser(): Promise<void> {
+    return this.request("/api/user", {
+      method: "DELETE",
+    })
+  }
+
+  async disconnectWhatsApp(): Promise<void> {
+    return this.request("/api/whatsapp/disconnect", {
+      method: "POST",
+    })
+  }
+
+  async generateWhatsAppCode(agentId: string): Promise<{ code: string; instance: string }> {
+    return this.request(`/api/whatsapp/generate-code/${agentId}`, {
+      method: "POST",
+    })
+  }
+
+  async checkWhatsAppStatus(instance: string): Promise<{ isConnected: boolean; status: string }> {
+    return this.request(`/api/whatsapp/status/${instance}`)
+  }
+
+  // Lead endpoints
+  async getLeads(): Promise<Lead[]> {
+    return this.request("/api/leads")
+  }
+
+  async getLead(id: string): Promise<Lead> {
+    return this.request(`/api/leads/${id}`)
+  }
+
+  // Conversion endpoints
+  async getConversions(): Promise<Conversion[]> {
+    return this.request("/api/conversions")
   }
 
   // Conversation endpoints

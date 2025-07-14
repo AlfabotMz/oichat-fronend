@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { User, CreditCard, Smartphone, Trash2, LogOut } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,19 +10,51 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useUser, useUpdateUser } from "@/hooks/use-user"
+import { useUser, useUpdateUser, useDeleteUser, useDisconnectWhatsApp } from "@/hooks/use-user"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 export default function SettingsPage() {
   const { data: user, isLoading } = useUser()
   const updateUser = useUpdateUser()
+  const deleteUser = useDeleteUser()
+  const disconnectWhatsApp = useDisconnectWhatsApp()
   const { toast } = useToast()
+  const router = useRouter()
 
-  const [name, setName] = useState(user?.name || "")
-  const [email, setEmail] = useState(user?.email || "")
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+
+  // Atualizar estados quando os dados do usuário carregarem
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "")
+      setEmail(user.email || "")
+    }
+  }, [user])
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!name.trim() || !email.trim()) {
+      toast({
+        title: "Erro",
+        description: "Nome e email são obrigatórios.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validação básica de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      toast({
+        title: "Erro",
+        description: "Por favor, insira um email válido.",
+        variant: "destructive",
+      })
+      return
+    }
 
     try {
       await updateUser.mutateAsync({ name, email })
@@ -39,22 +71,48 @@ export default function SettingsPage() {
     }
   }
 
-  const handleDisconnectWhatsApp = () => {
-    // Implementar lógica de desconexão do WhatsApp
-    toast({
-      title: "WhatsApp desconectado",
-      description: "Sua conta foi desconectada do WhatsApp.",
-    })
-  }
-
-  const handleDeleteAccount = () => {
-    if (confirm("Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.")) {
-      // Implementar lógica de exclusão da conta
+  const handleDisconnectWhatsApp = async () => {
+    if (!user?.remoteJid) {
       toast({
-        title: "Conta excluída",
-        description: "Sua conta foi excluída com sucesso.",
+        title: "Erro",
+        description: "Nenhuma conexão WhatsApp ativa para desconectar.",
         variant: "destructive",
       })
+      return
+    }
+
+    try {
+      await disconnectWhatsApp.mutateAsync()
+      toast({
+        title: "WhatsApp desconectado",
+        description: "Sua conta foi desconectada do WhatsApp com sucesso.",
+      })
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível desconectar o WhatsApp.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (confirm("Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.")) {
+      try {
+        await deleteUser.mutateAsync()
+        toast({
+          title: "Conta excluída",
+          description: "Sua conta foi excluída com sucesso.",
+        })
+        // Redirecionar para logout após exclusão
+        router.push("/auth/login")
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível excluir a conta.",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -197,9 +255,13 @@ export default function SettingsPage() {
               </div>
             )}
 
-            <Button variant="outline" onClick={handleDisconnectWhatsApp} disabled={!user?.remoteJid}>
+            <Button 
+              variant="outline" 
+              onClick={handleDisconnectWhatsApp} 
+              disabled={!user?.remoteJid || disconnectWhatsApp.isPending}
+            >
               <LogOut className="h-4 w-4 mr-2" />
-              Desconectar WhatsApp
+              {disconnectWhatsApp.isPending ? "Desconectando..." : "Desconectar WhatsApp"}
             </Button>
           </CardContent>
         </Card>
@@ -221,9 +283,13 @@ export default function SettingsPage() {
               </AlertDescription>
             </Alert>
 
-            <Button variant="destructive" onClick={handleDeleteAccount}>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAccount}
+              disabled={deleteUser.isPending}
+            >
               <Trash2 className="h-4 w-4 mr-2" />
-              Excluir Conta
+              {deleteUser.isPending ? "Excluindo..." : "Excluir Conta"}
             </Button>
           </CardContent>
         </Card>

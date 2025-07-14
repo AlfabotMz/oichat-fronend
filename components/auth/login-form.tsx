@@ -12,32 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, MessageSquare } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
-
-// Simulação de autenticação para desenvolvimento no v0
-const mockAuth = {
-  signIn: async (email: string, password: string) => {
-    // Simular delay de rede
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    if (email && password) {
-      const user = {
-        id: "mock-user-id",
-        name: "Usuário Demo",
-        email: email,
-        plan: "PRO",
-      }
-
-      // Salvar no localStorage para persistir entre navegações
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mock-session", JSON.stringify({ user }))
-      }
-
-      return { success: true, user }
-    }
-
-    throw new Error("Credenciais inválidas")
-  },
-}
+import { createClient } from "@/lib/supabase/client"
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
@@ -46,25 +21,30 @@ export function LoginForm() {
   const [error, setError] = useState("")
   const router = useRouter()
   const { toast } = useToast()
+  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-
     try {
-      await mockAuth.signIn(email, password)
-
-      toast({
-        title: "Login realizado com sucesso!",
-        description: "Redirecionando para o dashboard...",
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       })
 
+      if (error) {
+        setError(error.message)
+        return // Sai da função se houver erro
+      }
+
+      // router.refresh() irá re-executar o AuthLayout no servidor.
+      // O layout verá a nova sessão e redirecionará para o dashboard.
+      // Isso é mais confiável do que um `push` do lado do cliente.
+      router.refresh()
       router.push("/dashboard")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado. Tente novamente.")
     } finally {
-      setIsLoading(false)
+      setIsLoading(false) // Garante que o loading seja desativado
     }
   }
 

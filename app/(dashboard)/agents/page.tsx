@@ -1,10 +1,22 @@
 "use client"
-import { Bot, Plus, Settings, Trash2, Zap } from "lucide-react"
+import { useState } from "react"
+import { Bot, Plus, Settings, Trash2, Zap, Search, Smartphone } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useAgents, useUpdateAgent, useDeleteAgent } from "@/hooks/use-agents"
 import { useUser } from "@/hooks/use-user"
 import { useToast } from "@/hooks/use-toast"
@@ -17,9 +29,18 @@ export default function AgentsPage() {
   const deleteAgent = useDeleteAgent()
   const { toast } = useToast()
 
+  const [searchTerm, setSearchTerm] = useState("")
+  const [agentToDelete, setAgentToDelete] = useState<string | null>(null)
+
   const activeAgents = agents?.filter((agent) => agent.status === "ACTIVE") || []
   const canCreateAgent = user?.plan === "PRO" && (agents?.length || 0) < 3
   const canActivateAgent = user?.plan === "PRO" && activeAgents.length === 0
+
+  // Filtrar agentes baseado no termo de busca
+  const filteredAgents = agents?.filter((agent) =>
+    agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    agent.description.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || []
 
   const handleToggleAgent = async (agentId: string, currentStatus: string) => {
     if (user?.plan === "FREE") {
@@ -59,21 +80,22 @@ export default function AgentsPage() {
     }
   }
 
-  const handleDeleteAgent = async (agentId: string) => {
-    if (confirm("Tem certeza que deseja excluir este agente?")) {
-      try {
-        await deleteAgent.mutateAsync(agentId)
-        toast({
-          title: "Agente excluído",
-          description: "Agente removido com sucesso.",
-        })
-      } catch (error) {
-        toast({
-          title: "Erro",
-          description: "Não foi possível excluir o agente.",
-          variant: "destructive",
-        })
-      }
+  const handleDeleteAgent = async () => {
+    if (!agentToDelete) return
+
+    try {
+      await deleteAgent.mutateAsync(agentToDelete)
+      toast({
+        title: "Agente excluído",
+        description: "Agente removido com sucesso.",
+      })
+      setAgentToDelete(null)
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o agente.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -115,6 +137,17 @@ export default function AgentsPage() {
         </Button>
       </div>
 
+      {/* Barra de busca */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar agentes..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       {user?.plan === "FREE" && (
         <Alert>
           <Zap className="h-4 w-4" />
@@ -138,7 +171,7 @@ export default function AgentsPage() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {agents?.map((agent) => (
+        {filteredAgents.map((agent) => (
           <Card key={agent.id} className="relative">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -167,6 +200,11 @@ export default function AgentsPage() {
 
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" asChild>
+                    <Link href={`/agents/${agent.id}/connect`}>
+                      <Smartphone className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
                     <Link href={`/agents/${agent.id}/edit`}>
                       <Settings className="h-4 w-4" />
                     </Link>
@@ -174,7 +212,7 @@ export default function AgentsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDeleteAgent(agent.id)}
+                    onClick={() => setAgentToDelete(agent.id)}
                     disabled={deleteAgent.isPending}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -202,7 +240,40 @@ export default function AgentsPage() {
             </CardContent>
           </Card>
         )}
+
+        {agents && agents.length > 0 && filteredAgents.length === 0 && (
+          <Card className="col-span-full">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Search className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhum agente encontrado</h3>
+              <p className="text-muted-foreground text-center">
+                Tente ajustar os termos de busca
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Modal de confirmação de exclusão */}
+      <AlertDialog open={!!agentToDelete} onOpenChange={() => setAgentToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir agente</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este agente? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAgent}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
