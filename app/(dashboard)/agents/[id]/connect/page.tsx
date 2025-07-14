@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { QRCode } from "@/components/ui/qr-code"
-import { useAgent, useGenerateWhatsAppCode, useCheckWhatsAppStatus } from "@/hooks/use-agents"
+import { useAgent, useGenerateWhatsAppCode, useCheckWhatsAppStatus, useCheckWhatsAppInstance } from "@/hooks/use-agents"
 import { useUser } from "@/hooks/use-user"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -19,12 +19,17 @@ interface ConnectAgentPageProps {
 }
 
 export default function ConnectAgentPage({ params }: ConnectAgentPageProps) {
+  console.log("ConnectAgentPage rendered. params.id:", params.id)
   const router = useRouter()
   const { data: user } = useUser()
   const { data: agent, isLoading: isLoadingAgent } = useAgent(params.id)
   const generateCode = useGenerateWhatsAppCode()
   const checkStatus = useCheckWhatsAppStatus()
+  const { data: instanceCheck, isLoading: isLoadingInstanceCheck } = useCheckWhatsAppInstance(params.id)
   const { toast } = useToast()
+
+  console.log("isLoadingAgent:", isLoadingAgent, "isLoadingInstanceCheck:", isLoadingInstanceCheck)
+  console.log("instanceCheck:", instanceCheck)
 
   const [qrCodeData, setQrCodeData] = useState<{ code: string; instance: string } | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connecting" | "connected" | "error">("idle")
@@ -33,7 +38,23 @@ export default function ConnectAgentPage({ params }: ConnectAgentPageProps) {
 
   const canConnect = user?.plan === "PRO" && agent?.status === "ACTIVE"
 
+  // Se a instância já existe, carregar os dados do QR code e iniciar o polling
+  useEffect(() => {
+    console.log("useEffect [instanceCheck] triggered.", instanceCheck)
+    if (instanceCheck?.exists && instanceCheck.connection && !qrCodeData) {
+      setQrCodeData({
+        code: instanceCheck.connection.connection_code,
+        instance: instanceCheck.connection.instance_name,
+      })
+      // Iniciar o polling apenas se o status não for conectado ou erro
+      if (instanceCheck.connection.status !== "CONNECTED" && instanceCheck.connection.status !== "ERROR") {
+        startPolling(instanceCheck.connection.instance_name)
+      }
+    }
+  }, [instanceCheck])
+
   const generateQRCode = async () => {
+    console.log("generateQRCode called.")
     if (!agent) return
 
     try {
@@ -53,6 +74,7 @@ export default function ConnectAgentPage({ params }: ConnectAgentPageProps) {
   }
 
   const startPolling = (instance: string) => {
+    console.log("startPolling called for instance:", instance)
     // Limpar intervalo anterior se existir
     if (pollingInterval) {
       clearInterval(pollingInterval)
@@ -82,6 +104,7 @@ export default function ConnectAgentPage({ params }: ConnectAgentPageProps) {
   }
 
   const stopPolling = () => {
+    console.log("stopPolling called.")
     if (pollingInterval) {
       clearInterval(pollingInterval)
       setPollingInterval(null)
@@ -108,14 +131,16 @@ export default function ConnectAgentPage({ params }: ConnectAgentPageProps) {
     }
   }, [])
 
-  // Gerar QR Code automaticamente quando a página carregar
+  // Gerar QR Code automaticamente quando a página carregar (apenas se não houver instância existente)
   useEffect(() => {
-    if (canConnect && !qrCodeData && !generateCode.isPending) {
-      generateQRCode()
+    console.log("useEffect [canConnect, instanceCheck?.exists, qrCodeData, generateCode.isPending] triggered.", { canConnect, instanceExists: instanceCheck?.exists, qrCodeData, generateCodePending: generateCode.isPending })
+    if (canConnect && !instanceCheck?.exists && !qrCodeData && !generateCode.isPending) {
+      // generateQRCode() // Não chamar automaticamente aqui, esperar o clique do botão
     }
-  }, [canConnect, qrCodeData, generateCode.isPending])
+  }, [canConnect, instanceCheck?.exists, qrCodeData, generateCode.isPending])
 
-  if (isLoadingAgent) {
+  if (isLoadingAgent || isLoadingInstanceCheck) {
+    console.log("Rendering loading state.")
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -138,6 +163,7 @@ export default function ConnectAgentPage({ params }: ConnectAgentPageProps) {
   }
 
   if (!agent) {
+    console.log("Rendering agent not found state.")
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -161,6 +187,7 @@ export default function ConnectAgentPage({ params }: ConnectAgentPageProps) {
   }
 
   if (!canConnect) {
+    console.log("Rendering cannot connect state.")
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -186,6 +213,7 @@ export default function ConnectAgentPage({ params }: ConnectAgentPageProps) {
     )
   }
 
+  console.log("Rendering main content.")
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -199,48 +227,67 @@ export default function ConnectAgentPage({ params }: ConnectAgentPageProps) {
       </div>
 
       <div className="max-w-2xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Smartphone className="h-5 w-5" />
-              Conectar {agent.name} ao WhatsApp
-            </CardTitle>
-            <CardDescription>
-              Escaneie o QR Code com seu WhatsApp para conectar o agente
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <p className="text-sm font-medium">Status da Conexão</p>
-                <p className="text-sm text-muted-foreground">
-                  {connectionStatus === "idle" && "Aguardando geração do código..."}
-                  {connectionStatus === "connecting" && `Aguardando conexão... (${Math.floor(timeElapsed / 60)}:${(timeElapsed % 60).toString().padStart(2, '0')})`}
-                  {connectionStatus === "connected" && "WhatsApp conectado com sucesso!"}
-                  {connectionStatus === "error" && "Erro ao gerar código de conexão"}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {connectionStatus === "connected" && (
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                )}
-                {connectionStatus === "error" && (
-                  <XCircle className="h-5 w-5 text-red-500" />
-                )}
-                {connectionStatus === "connecting" && (
-                  <Clock className="h-5 w-5 text-blue-500" />
-                )}
-              </div>
-            </div>
-
-            {connectionStatus === "error" && (
+        {!instanceCheck?.exists ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5" />
+                Criar Instância do WhatsApp para {agent.name}
+              </CardTitle>
+              <CardDescription>
+                Uma instância do WhatsApp será criada para este agente. Isso permitirá que ele se conecte ao WhatsApp.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <Button onClick={generateQRCode} disabled={generateCode.isPending}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Tentar Novamente
+                {generateCode.isPending ? "Criando Instância..." : "Criar Instância do WhatsApp"}
               </Button>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5" />
+                Conectar {agent.name} ao WhatsApp
+              </CardTitle>
+              <CardDescription>
+                Escaneie o QR Code com seu WhatsApp para conectar o agente
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Status da Conexão</p>
+                  <p className="text-sm text-muted-foreground">
+                    {connectionStatus === "idle" && "Aguardando geração do código..."}
+                    {connectionStatus === "connecting" && `Aguardando conexão... (${Math.floor(timeElapsed / 60)}:${(timeElapsed % 60).toString().padStart(2, '0')})`}
+                    {connectionStatus === "connected" && "WhatsApp conectado com sucesso!"}
+                    {connectionStatus === "error" && "Erro ao gerar código de conexão"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {connectionStatus === "connected" && (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  )}
+                  {connectionStatus === "error" && (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                  {connectionStatus === "connecting" && (
+                    <Clock className="h-5 w-5 text-blue-500" />
+                  )}
+                </div>
+              </div>
+
+              {connectionStatus === "error" && (
+                <Button onClick={generateQRCode} disabled={generateCode.isPending}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Tentar Novamente
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {qrCodeData && connectionStatus !== "error" && (
           <div className="space-y-6">

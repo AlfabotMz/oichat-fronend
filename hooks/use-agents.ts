@@ -7,9 +7,9 @@ export function useAgent(id: string) {
   return useQuery({
     queryKey: ["agent", id],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { user } } = await supabase.auth.getUser()
       
-      if (!session?.user) {
+      if (!user) {
         throw new Error("Usuário não autenticado")
       }
 
@@ -17,7 +17,7 @@ export function useAgent(id: string) {
         .from("agents")
         .select("*")
         .eq("id", id)
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .single()
 
       if (error) throw error
@@ -33,16 +33,16 @@ export function useAgents() {
   return useQuery({
     queryKey: ["agents"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { user } } = await supabase.auth.getUser()
       
-      if (!session?.user) {
+      if (!user) {
         throw new Error("Usuário não autenticado")
       }
 
       const { data, error } = await supabase
         .from("agents")
         .select("*")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
 
       if (error) throw error
@@ -61,16 +61,16 @@ export function useCreateAgent() {
       description: string
       prompt: string
     }) => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { user } } = await supabase.auth.getUser()
       
-      if (!session?.user) {
+      if (!user) {
         throw new Error("Usuário não autenticado")
       }
 
       const { data: agent, error } = await supabase
         .from("agents")
         .insert({
-          user_id: session.user.id,
+          user_id: user.id,
           status: "INACTIVE",
           ...data,
         })
@@ -103,9 +103,9 @@ export function useUpdateAgent() {
         prompt?: string
       }
     }) => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { user } } = await supabase.auth.getUser()
       
-      if (!session?.user) {
+      if (!user) {
         throw new Error("Usuário não autenticado")
       }
 
@@ -113,7 +113,7 @@ export function useUpdateAgent() {
         .from("agents")
         .update(data)
         .eq("id", id)
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .select()
         .single()
 
@@ -132,9 +132,9 @@ export function useDeleteAgent() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { user } } = await supabase.auth.getUser()
       
-      if (!session?.user) {
+      if (!user) {
         throw new Error("Usuário não autenticado")
       }
 
@@ -142,7 +142,7 @@ export function useDeleteAgent() {
         .from("agents")
         .delete()
         .eq("id", id)
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
 
       if (error) throw error
     },
@@ -184,5 +184,24 @@ export function useCheckWhatsAppStatus() {
 
       return response.json()
     },
+  })
+}
+
+export function useCheckWhatsAppInstance(agentId: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ["whatsapp-instance-check", agentId],
+    queryFn: async () => {
+      const response = await fetch(`/api/whatsapp/instance-check/${agentId}`)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erro ao verificar instância do WhatsApp")
+      }
+
+      return response.json()
+    },
+    enabled: !!agentId,
   })
 }

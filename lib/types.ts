@@ -1,6 +1,6 @@
 export interface Agent {
   id: string
-  userId: string
+  user_id: string
   status: "ACTIVE" | "INACTIVE"
   name: string
   description: string

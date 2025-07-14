@@ -9,36 +9,7 @@ export function useUser() {
   return useQuery({
     queryKey: ["user"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!session?.user) {
-        throw new Error("Usuário não autenticado")
-      }
-
-      const { data: user, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", session.user.id)
-        .single()
-
-      if (error) {
-        if (error.code === "PGRST116") {
-          const { data: newUser } = await supabase
-            .from("users")
-            .insert({
-              id: session.user.id,
-              name: session.user.user_metadata?.full_name || "Usuário",
-              email: session.user.email!,
-              plan: "FREE",
-            })
-            .select()
-            .single()
-
-          return newUser
-        }
-        throw error
-      }
-
+      const { data: { user } } = await supabase.auth.getUser()
       return user
     },
   })

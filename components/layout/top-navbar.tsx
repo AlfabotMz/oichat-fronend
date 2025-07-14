@@ -29,19 +29,8 @@ export function TopNavbar() {
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="hidden md:flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.forward()}>
-          <ArrowRight className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.location.reload()}>
-          <RotateCcw className="h-4 w-4" />
-        </Button>
-        <div className="flex items-center gap-1 ml-2">
-          <span className="text-muted-foreground">/</span>
-          <span className="text-sm font-medium">{getPageTitle()}</span>
-        </div>
+        
+        
       </div>
       <div className="flex items-center gap-2">
         <MobileNav />

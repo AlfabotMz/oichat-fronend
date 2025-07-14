@@ -88,13 +88,17 @@ export function QRCode({
             </div>
           ) : (
             <div className="bg-white p-4 rounded-lg border">
-              <QRCodeSVG
-                value={value}
-                size={size}
-                level="M"
-                includeMargin={true}
-                style={{ display: "block" }}
-              />
+              {value.startsWith("data:image/") ? (
+                <img src={value} alt="QR Code" style={{ width: size, height: size, display: "block" }} />
+              ) : (
+                <QRCodeSVG
+                  value={value}
+                  size={size}
+                  level="M"
+                  includeMargin={true}
+                  style={{ display: "block" }}
+                />
+              )}
             </div>
           )}
         </div>

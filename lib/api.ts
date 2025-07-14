@@ -31,7 +31,7 @@ class ApiClient {
 
   // Agent endpoints
   async createAgent(data: {
-    userId: string
+    user_id: string
     status: "ACTIVE" | "INACTIVE"
     name: string
     description: string

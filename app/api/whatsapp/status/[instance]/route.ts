@@ -9,56 +9,60 @@ export async function GET(
     const supabase = createClient()
     
     // Verificar autenticação
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const instanceName = params.instance
 
-    // Buscar dados da conexão
-    const { data: connection, error: connectionError } = await supabase
-      .from("whatsapp_connections")
-      .select("*")
-      .eq("instance_name", instanceName)
-      .eq("user_id", session.user.id)
-      .single()
+    // =====================================================================
+    // AQUI: CHAMADA REAL PARA SUA API DO WHATSAPP PARA VERIFICAR O STATUS
+    // =====================================================================
+    let isConnected: boolean = false;
 
-    if (connectionError || !connection) {
-      return NextResponse.json({ error: "Conexão não encontrada" }, { status: 404 })
+    try {
+      const whatsappApiBaseUrl = process.env.WHATSAPP_API_BASE_URL; // Variável de ambiente para a URL base
+      const whatsappApiKey = process.env.WHATSAPP_API_KEY; // Variável de ambiente para a chave de API
+
+      if (!whatsappApiBaseUrl || !whatsappApiKey) {
+        throw new Error("Variáveis de ambiente da API do WhatsApp não configuradas.");
+      }
+
+      // Adapte o endpoint conforme sua API espera (ex: /whatsapp/instance/status)
+      const whatsappStatusEndpoint = `/whatsapp/instance/status/${instanceName}`;
+      const whatsappApiUrl = `${whatsappApiBaseUrl}${whatsappStatusEndpoint}`;
+
+      const apiResponse = await fetch(whatsappApiUrl, {
+        method: "GET", 
+        headers: {
+          "Authorization": `Bearer ${whatsappApiKey}`, 
+        },
+      });
+
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        throw new Error(errorData.message || `Erro na API do WhatsApp: ${apiResponse.status}`);
+      }
+
+      const data = await apiResponse.json();
+      isConnected = data.isConnected; 
+
+    } catch (apiError) {
+      console.error("Erro ao chamar a API do WhatsApp para verificar status:", apiError);
+      isConnected = false;
     }
 
-    // Simular verificação de status (você pode integrar com API real do WhatsApp)
-    // Por enquanto, vamos simular que a conexão foi estabelecida após alguns segundos
-    const timeSinceCreation = Date.now() - new Date(connection.created_at).getTime()
-    const isConnected = timeSinceCreation > (Math.random() * 10000 + 10000)
-
-    // Se conectado, atualizar status
-    if (isConnected && connection.status === "PENDING") {
-      await supabase
-        .from("whatsapp_connections")
-        .update({ status: "CONNECTED" })
-        .eq("id", connection.id)
-
-      // Atualizar remoteJid do usuário
-      await supabase
-        .from("users")
-        .update({ remoteJid: connection.connection_code })
-        .eq("id", session.user.id)
-    }
-
+    // Retornar dados da conexão
     return NextResponse.json({
-      isConnected: isConnected || connection.status === "CONNECTED",
-      status: isConnected ? "CONNECTED" : connection.status,
-      instance: instanceName,
-      connectionCode: connection.connection_code,
+      isConnected: isConnected,
     })
 
   } catch (error) {
-    console.error("Erro ao verificar status WhatsApp:", error)
+    console.error("Erro geral ao verificar status WhatsApp:", error)
     return NextResponse.json(
       { error: "Erro interno do servidor" },
       { status: 500 }
     )
   }
-} 
+}

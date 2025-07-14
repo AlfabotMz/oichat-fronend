@@ -129,18 +129,20 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <Link href={item.url} onClick={() => setOpenMobile(false)}>
-                    <SidebarMenuButton
-                      isActive={pathname === item.url}
-                      className={cn(
-                        "h-11 text-sm font-medium hover:bg-gray-700 hover:text-white",
-                        isCollapsed ? "justify-center" : "justify-start"
-                      )}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && <span className="ml-3">{item.title}</span>}
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton
+                    isActive={pathname === item.url}
+                    className={cn(
+                      "h-11 text-sm font-medium hover:bg-gray-700 hover:text-white",
+                      isCollapsed ? "justify-center" : "justify-start"
+                    )}
+                    onClick={() => {
+                      router.push(item.url)
+                      setOpenMobile(false)
+                    }}
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
