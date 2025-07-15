@@ -129,21 +129,19 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    isActive={pathname === item.url}
-                    className={cn(
-                      "h-11 text-sm font-medium hover:bg-gray-700 hover:text-white",
-                      isCollapsed ? "justify-center" : "justify-start"
-                    )}
-                    onClick={() => {
-                      console.log(`Sidebar item clicked: ${item.title} - Attempting navigation to ${item.url}`)
-                      router.push(item.url)
-                      setOpenMobile(false)
-                    }}
-                  >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && <span className="ml-3">{item.title}</span>}
-                  </SidebarMenuButton>
+                  <Link href={item.url} passHref asChild> {/* Add asChild here, remove legacyBehavior */}
+                    <SidebarMenuButton
+                      isActive={pathname === item.url}
+                      className={cn(
+                        "h-11 text-sm font-medium hover:bg-gray-700 hover:text-white",
+                        isCollapsed ? "justify-center" : "justify-start"
+                      )}
+                      onClick={() => setOpenMobile(false)} // Keep onClick for mobile sidebar close
+                    >
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="ml-3">{item.title}</span>}
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
