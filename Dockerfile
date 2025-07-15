@@ -37,4 +37,4 @@ COPY --from=builder /app/package.json ./package.json
 EXPOSE 3000
 
 # Command to run the Next.js application
-CMD ["pnpm", "start"]
+CMD ["npm", "start"]
