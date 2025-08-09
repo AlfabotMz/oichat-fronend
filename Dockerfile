@@ -3,11 +3,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy pnpm-lock.yaml and package.json to leverage Docker cache
-COPY package.json pnpm-lock.yaml* ./
-
 # Install pnpm
 RUN npm install -g pnpm@8
+
+# Copy package.json and pnpm-lock.yaml
+COPY package.json pnpm-lock.yaml* ./
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -15,26 +15,25 @@ RUN pnpm install --frozen-lockfile
 # Copy the rest of the application code
 COPY . .
 
-# Build the Next.js application
+# Build the application
 RUN pnpm build
 
-# Stage 2: Run the application
+# Stage 2: Production image
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Set environment variables for production
 ENV NODE_ENV production
 
-# Copy necessary files from the builder stage
-COPY --from=builder /app/next.config.mjs ./
+# Copy the standalone output
+COPY --from=builder /app/.next/standalone ./
+# Copy the public and static folders
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/.next/static ./.next/static
 
-# Expose the port Next.js runs on
+
+# Expose the port the app runs on
 EXPOSE 3000
 
-# Command to run the Next.js application
-CMD ["npm", "start"]
+# Run the application
+CMD ["node", "server.js"]
