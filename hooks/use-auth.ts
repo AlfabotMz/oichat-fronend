@@ -40,3 +40,19 @@ export function useSignOut() {
     },
   })
 } 
+
+export function useUpdatePassword() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async (password: string) => {
+      const { error } = await supabase.auth.updateUser({ password })
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      return { success: true }
+    },
+  })
+} 

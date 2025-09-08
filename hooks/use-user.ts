@@ -15,7 +15,7 @@ export function useUser() {
       }
       const { data: userData, error } = await supabase
         .from("users")
-        .select("plan")
+        .select("plan, name, remoteJid, plan_end")
         .eq("id", user.id)
         .single()
 
@@ -24,6 +24,9 @@ export function useUser() {
       return {
         ...user,
         plan: userData?.plan || null,
+        name: userData?.name || null,
+        remoteJid: userData?.remoteJid || null,
+        plan_end: userData?.plan_end || null,
       }
     },
   })

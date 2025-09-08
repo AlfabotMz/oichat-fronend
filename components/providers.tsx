@@ -13,7 +13,10 @@ function ReactQueryDevtoolsWrapper() {
     setIsClient(true)
   }, [])
 
-  if (!isClient) return null
+  // Ferramentas de desenvolvedor não devem ser incluídas no build de produção ou renderizadas no servidor
+  if (process.env.NODE_ENV === 'production' || !isClient) {
+    return null
+  }
 
   // Import dinâmico apenas no client
   const ReactQueryDevtools = React.lazy(() => 

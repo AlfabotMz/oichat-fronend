@@ -2,10 +2,11 @@
 
 import type React from "react"
 
-import { useSession } from "@/lib/auth-client"
+import { useUser } from "@/hooks/use-user"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Crown, Lock } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface PlanGuardProps {
   children: React.ReactNode
@@ -14,9 +15,13 @@ interface PlanGuardProps {
 }
 
 export function PlanGuard({ children, requiredPlan, fallback }: PlanGuardProps) {
-  const { data: session } = useSession()
+  const { data: user, isLoading } = useUser()
 
-  const userPlan = session?.user?.plan || "FREE"
+  if (isLoading) {
+    return <Skeleton className="h-12 w-full" />
+  }
+
+  const userPlan = user?.plan || "FREE"
   const hasAccess = requiredPlan === "FREE" || userPlan === "PRO"
 
   if (!hasAccess) {

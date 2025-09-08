@@ -49,8 +49,6 @@ export default function NewAgentPage() {
 
     try {
       await createAgent.mutateAsync({
-        userId: user.id,
-        status: "INACTIVE",
         name: name.trim(),
         description: description.trim(),
         prompt: prompt.trim(),

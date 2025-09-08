@@ -1,5 +1,5 @@
 import type React from "react"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { TopNavbar } from "@/components/layout/top-navbar"
 import { AuthGuard } from "@/components/auth/auth-guard"

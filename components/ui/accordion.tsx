@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import * as AccordionPrimitive from "@radix-ui/react-accordion"
+import * as AccordionPrimitive from "@radix-ui/react-accordion" // This line is already correct, no change needed.
 import { ChevronDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"

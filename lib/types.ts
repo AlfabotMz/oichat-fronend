@@ -1,3 +1,10 @@
+export interface WebMessage {
+  id: string
+  text: string
+  sender: "user" | "agent"
+  timestamp: string
+}
+
 export interface Agent {
   id: string
   user_id: string

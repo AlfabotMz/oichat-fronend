@@ -10,13 +10,8 @@ import { apiClient } from "@/lib/api"
 
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface WebMessage {
-  id: string;
-  text: string;
-  sender: string; // 'user' or 'agent'
-  timestamp: string;
-}
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import type { WebMessage } from "@/lib/types";
 
 interface Message extends WebMessage {
   isUser: boolean;
@@ -31,100 +26,83 @@ export function ChatInterface() {
   const { data: user } = useUser()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const localStorageKey = `chat_history_${user?.id}_${selectedAgent}`
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
-
-  const handleClearChat = () => {
-    setMessages([])
-    localStorage.removeItem(localStorageKey)
-    console.log("Chat cleared and localStorage removed.")
-  }
-
+  // Scroll to bottom when new messages are added
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Load messages and selected agent from localStorage on component mount or user change
+  // Initialization effect: runs only when the user changes
   useEffect(() => {
-    console.log("useEffect [user?.id] triggered for loading messages and selected agent.")
-    if (user?.id) {
-      const storedSelectedAgent = localStorage.getItem(`selected_agent_${user.id}`)
-      if (storedSelectedAgent) {
-        setSelectedAgent(storedSelectedAgent)
-        console.log("Selected agent loaded from localStorage:", storedSelectedAgent)
+    const initializeChat = async () => {
+      if (!user?.id) return
+
+      // 1. Fetch agents
+      let fetchedAgents: any[] = []
+      try {
+        const response = await fetch(`/api/agents?userId=${user.id}`)
+        if (response.ok) {
+          fetchedAgents = await response.json()
+          setAgents(fetchedAgents)
+        } else {
+          setAgents([])
+        }
+      } catch (error) {
+        console.error("Error fetching agents:", error)
+        setAgents([])
       }
 
-      if (selectedAgent) { // Only load messages if an agent is selected
-        const storedMessages = localStorage.getItem(localStorageKey)
-        console.log(`Loading messages for key: ${localStorageKey}`)
-        if (storedMessages) {
-          setMessages(JSON.parse(storedMessages))
-          console.log("Messages loaded from localStorage:", JSON.parse(storedMessages))
-        } else {
-          setMessages([])
-          console.log("No messages found in localStorage, setting to empty array.")
-        }
+      // 2. Determine and set the initial agent
+      const storedSelectedAgent = localStorage.getItem(`selected_agent_${user.id}`)
+      if (storedSelectedAgent && fetchedAgents.some(agent => agent.id === storedSelectedAgent)) {
+        setSelectedAgent(storedSelectedAgent)
+      } else if (fetchedAgents.length > 0) {
+        setSelectedAgent(fetchedAgents[0].id)
+      }
+    }
+
+    initializeChat()
+  }, [user?.id])
+
+  // Effect to load messages when the selected agent changes
+  useEffect(() => {
+    if (user?.id && selectedAgent) {
+      const localStorageKey = `chat_history_${user.id}_${selectedAgent}`
+      const storedMessages = localStorage.getItem(localStorageKey)
+      if (storedMessages) {
+        setMessages(JSON.parse(storedMessages))
+      } else {
+        setMessages([]) // Clear messages for the new agent
       }
     } else {
-      console.log("User ID not available for loading messages and selected agent.", { userId: user?.id })
-    }
-  }, [user?.id, localStorageKey, selectedAgent]) // Add selectedAgent to dependencies to re-run when it changes internally
-
-  // Save selected agent to localStorage whenever it changes
-  useEffect(() => {
-    console.log("useEffect [selectedAgent, user?.id] triggered for saving selected agent.")
-    if (user?.id && selectedAgent) {
-      localStorage.setItem(`selected_agent_${user.id}`, selectedAgent)
-      console.log("Selected agent saved to localStorage:", selectedAgent)
+      setMessages([]) // Clear messages if no agent is selected
     }
   }, [selectedAgent, user?.id])
 
-  // Save messages to localStorage whenever they change
+  // Effect to save the selected agent to localStorage
   useEffect(() => {
-    console.log("useEffect [messages, selectedAgent, user?.id] triggered for saving messages.")
     if (user?.id && selectedAgent) {
-      console.log(`Saving messages to key: ${localStorageKey}`)
-      localStorage.setItem(localStorageKey, JSON.stringify(messages))
-      console.log("Messages saved to localStorage:", messages)
-    } else {
-      console.log("User ID or selected agent not available for saving messages.", { userId: user?.id, selectedAgent })
+      localStorage.setItem(`selected_agent_${user.id}`, selectedAgent)
     }
-  }, [messages, selectedAgent, user?.id, localStorageKey])
+  }, [selectedAgent, user?.id])
 
-  // Fetch agents and set default selected agent
+  // Effect to save messages to localStorage
   useEffect(() => {
-    const fetchAgents = async () => {
-      if (!user?.id) return; // Only fetch if user ID is available
-
-      try {
-        const response = await fetch(`/api/agents?userId=${user.id}`);
-        if (response.ok) {
-          const data = await response.json();
-          setAgents(data);
-
-          // If no agent is selected or the selected agent is no longer in the list,
-          // select the first agent from the fetched list.
-          if (!selectedAgent || !data.some((agent: any) => agent.id === selectedAgent)) {
-            if (data.length > 0) {
-              setSelectedAgent(data[0].id);
-              console.log("Defaulting selected agent to:", data[0].id);
-            } else {
-              setSelectedAgent(null);
-              console.log("No agents available.");
-            }
-          }
-        } else {
-          console.error("Failed to fetch agents:", response.statusText);
-        }
-      } catch (error) {
-        console.error("Error fetching agents:", error);
+    if (user?.id && selectedAgent) {
+      const localStorageKey = `chat_history_${user.id}_${selectedAgent}`
+      // Avoid saving empty initial state
+      if (messages.length > 0) {
+        localStorage.setItem(localStorageKey, JSON.stringify(messages))
       }
-    };
-    fetchAgents();
-  }, [user?.id, selectedAgent]); // Re-run when user ID or selectedAgent changes
+    }
+  }, [messages, selectedAgent, user?.id])
+
+  const handleClearChat = () => {
+    if (user?.id && selectedAgent) {
+      const localStorageKey = `chat_history_${user.id}_${selectedAgent}`
+      setMessages([])
+      localStorage.removeItem(localStorageKey)
+    }
+  }
 
   const handleSend = async () => {
     console.log("handleSend called.")
@@ -148,10 +126,8 @@ export function ChatInterface() {
 
     try {
       const agentWebMessage = await apiClient.sendMessage(selectedAgent, {
-        id: userMessage.id,
-        content: userMessage.text,
-        fromMe: true,
-        conversationId: localStorageKey, // Usando a chave do localStorage como ID da conversa
+        message: userMessage.text,
+        userId: user.id,
       })
 
       const agentMessage: Message = {
@@ -194,10 +170,11 @@ export function ChatInterface() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <Card className="flex-1 flex flex-col">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Chat</CardTitle>
+    <div className="flex flex-col h-full w-full max-w-4xl mx-auto bg-background">
+      {/* Header */}
+      <header className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold">Chat</h1>
           <Select onValueChange={setSelectedAgent} value={selectedAgent || ""}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Selecione um agente" />
@@ -210,72 +187,84 @@ export function ChatInterface() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={handleClearChat} disabled={messages.length === 0}>
-            Limpar Conversa
-          </Button>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-4">
-            {messages.map((message) => (
+        </div>
+        <Button variant="ghost" size="sm" onClick={handleClearChat} disabled={messages.length === 0}>
+          Limpar Conversa
+        </Button>
+      </header>
+
+      {/* Message Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex items-start gap-4 ${message.isUser ? "justify-end" : ""}`}>
+            {!message.isUser && (
+              <Avatar className="w-8 h-8">
+                <AvatarFallback><Bot className="w-4 h-4" /></AvatarFallback>
+              </Avatar>
+            )}
+            <div
+              className={`flex flex-col gap-1 ${message.isUser ? "items-end" : "items-start"}`}>
               <div
-                key={message.id}
-                className={`flex items-end gap-2 ${message.isUser ? "justify-end" : ""}`}>
-                {!message.isUser && (
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                )}
-                <div
-                  className={`rounded-lg px-4 py-2 max-w-xs lg:max-w-md ${message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                  {message.text}
-                </div>
-                {message.isUser && (
-                  <div className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center">
-                    <User className="w-4 h-4" />
-                  </div>
-                )}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-          {isAgentTyping && (
-            <div className="flex items-center gap-2 mt-4">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                <Bot className="w-4 h-4" />
-              </div>
-              <div className="rounded-lg px-4 py-2 max-w-xs lg:max-w-md bg-muted animate-pulse">
-                Digitando...
+                className={`rounded-2xl p-3 text-sm ${
+                  message.isUser
+                    ? "bg-primary text-primary-foreground rounded-br-none"
+                    : "bg-muted rounded-bl-none"
+                }`}>
+                <p className="whitespace-pre-wrap">{message.text}</p>
               </div>
             </div>
-          )}
-        </CardContent>
-        <div className="p-4 border-t bg-background">
-          <div className="relative flex items-center">
-            <Textarea
-              placeholder="Envie uma mensagem..."
-              className="min-h-[48px] max-h-[200px] pr-12 resize-none overflow-hidden bg-background shadow-sm"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSend()
-                }
-              }}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              className="absolute right-2 top-1/2 -translate-y-1/2"
-              onClick={handleSend}
-              disabled={!selectedAgent || !user?.id || input.trim() === ""}
-            >
-              <Send className="h-4 w-4" />
-              <span className="sr-only">Enviar mensagem</span>
-            </Button>
+            {message.isUser && (
+              <Avatar className="w-8 h-8">
+                <AvatarFallback><User className="w-4 h-4" /></AvatarFallback>
+              </Avatar>
+            )}
           </div>
-        </div>
-      </Card>
+        ))}
+        <div ref={messagesEndRef} />
+        {isAgentTyping && (
+          <div className="flex items-start gap-4">
+            <Avatar className="w-8 h-8">
+              <AvatarFallback><Bot className="w-4 h-4" /></AvatarFallback>
+            </Avatar>
+            <div className="rounded-2xl p-3 text-sm bg-muted rounded-bl-none animate-pulse">
+              Digitando...
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input Form */}
+      <div className="p-4 border-t">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleSend()
+          }}
+          className="relative">
+          <Textarea
+            placeholder="Digite sua mensagem..."
+            className="min-h-[48px] rounded-2xl resize-none p-3 pr-16"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                handleSend()
+              }
+            }}
+          />
+          <Button
+            type="submit"
+            size="icon"
+            className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full"
+            disabled={!selectedAgent || !user?.id || input.trim() === ""}>
+            <Send className="h-4 w-4" />
+            <span className="sr-only">Enviar</span>
+          </Button>
+        </form>
+      </div>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import crypto from "crypto"
 
 export async function POST(
   request: NextRequest,
@@ -27,27 +28,31 @@ export async function POST(
     let agentResponseText: string = "";
 
     try {
-      const agentApiBaseUrl = process.env.WHATSAPP_API_BASE_URL; // Usando a mesma base URL da API do WhatsApp
-      const agentApiKey = process.env.WHATSAPP_API_KEY; // Usando a mesma chave de API
+      const agentApiBaseUrl = process.env.WHATSAPP_API_BASE_URL;
+      const agentApiKey = process.env.WHATSAPP_API_KEY;
 
-      if (!agentApiBaseUrl || !agentApiKey) {
-        throw new Error("Variáveis de ambiente da API do Agente não configuradas.");
+      if (!agentApiBaseUrl) {
+        throw new Error("URL base da API do Agente (WHATSAPP_API_BASE_URL) não configurada.");
       }
 
-      // Adapte o endpoint conforme sua API do Agente espera (ex: /agent/chat)
-      const agentChatEndpoint = `/agent/chat/${agentId}`;
-      const agentApiUrl = `${agentApiBaseUrl}${agentChatEndpoint}`;
+            const agentApiUrl = `${agentApiBaseUrl}/api/agent/conversation/${agentId}`;
+
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+
+      if (agentApiKey) {
+        headers["Authorization"] = `Bearer ${agentApiKey}`;
+      }
 
       const apiResponse = await fetch(agentApiUrl, {
-        method: "POST", 
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${agentApiKey}`, 
-        },
+        method: "POST",
+        headers: headers,
         body: JSON.stringify({
-          userId: receivedUserId,
-          message: message,
-          // Outros parâmetros necessários para a conversa com o agente
+          id: crypto.randomUUID(),
+          content: message,
+          fromMe: true,
+          conversationId: receivedUserId,
         }),
       });
 
@@ -57,7 +62,7 @@ export async function POST(
       }
 
       const data = await apiResponse.json();
-      agentResponseText = data.response; // Sua API deve retornar a resposta do agente aqui
+      agentResponseText = data.content; // Extrai a resposta do campo 'content'
 
     } catch (apiError) {
       console.error("Erro ao chamar a API do Agente:", apiError);

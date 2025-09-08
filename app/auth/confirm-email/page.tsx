@@ -99,7 +99,7 @@ export default function ConfirmEmailPage() {
               </div>
               <ol className="text-sm text-muted-foreground space-y-1 text-left">
                 <li>1. Verifique sua caixa de entrada</li>
-                <li>2. Clique no link "Confirmar Minha Conta"</li>
+                <li>2. Clique no link &quot;Confirmar Minha Conta&quot;</li>
                 <li>3. Faça login no OIChat</li>
                 <li>4. Comece a criar seus agentes!</li>
               </ol>

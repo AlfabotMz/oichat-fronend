@@ -12,10 +12,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Instance name is required" }, { status: 400 });
     }
 
-    const response = await apiClient.checkWhatsAppConnection(instanceName);
+    const response: any = await apiClient.checkWhatsAppConnection(instanceName);
 
-    const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createClient();
 
     let newStatus: "CONNECTED" | "DISCONNECTED" | "PENDING" | "ERROR" = "PENDING";
     if (response.isConnected) {

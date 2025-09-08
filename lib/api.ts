@@ -1,6 +1,6 @@
-const API_BASE_URL = "https://api.alfabot.icu"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"
 
-import type { Agent } from "@/lib/types"
+import type { Agent, WebMessage } from "@/lib/types"
 import type { User, Lead, Conversion } from "@/lib/supabase"
 
 class ApiClient {
@@ -123,13 +123,11 @@ class ApiClient {
   async sendMessage(
     agentId: string,
     data: {
-      id: string
-      content: string
-      fromMe: boolean
-      conversationId: string
+      message: string
+      userId: string
     },
-  ) {
-    return this.request(`/api/agent/conversation/${agentId}`, {
+  ): Promise<WebMessage> {
+    return this.request(`/api/agent/conversations/${agentId}`, {
       method: "POST",
       body: JSON.stringify(data),
     })
@@ -146,7 +144,7 @@ class ApiClient {
     instance: string
     agentId: string
   }) {
-    return this.request("/api/whatsapp/create", {
+        return this.request("/api/whatsapp/create-instance", {
       method: "POST",
       body: JSON.stringify(data),
     })

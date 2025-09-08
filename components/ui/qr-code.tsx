@@ -27,34 +27,20 @@ export function QRCode({
 }: QRCodeProps) {
   const [isDownloading, setIsDownloading] = useState(false)
 
-  const handleDownload = async () => {
-    if (!value) return
-
+  const handleDownload = () => {
     setIsDownloading(true)
     try {
-      // Criar um canvas temporário para gerar a imagem
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
-      if (!ctx) return
+      const svgElement = document.getElementById("qr-code-svg")
+      if (!svgElement) {
+        console.error("QR Code SVG element not found")
+        setIsDownloading(false)
+        return
+      }
 
-      // Criar um SVG temporário
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-      svg.setAttribute("width", size.toString())
-      svg.setAttribute("height", size.toString())
-      svg.setAttribute("viewBox", `0 0 ${size} ${size}`)
-
-      // Adicionar o QR Code ao SVG
-      const qrCode = document.createElementNS("http://www.w3.org/2000/svg", "g")
-      const qrCodeSVG = new QRCodeSVG({ value, size })
-      qrCode.innerHTML = qrCodeSVG.toString()
-      svg.appendChild(qrCode)
-
-      // Converter SVG para string
-      const svgString = new XMLSerializer().serializeToString(svg)
+      const svgString = new XMLSerializer().serializeToString(svgElement)
       const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" })
       const url = URL.createObjectURL(svgBlob)
 
-      // Criar link de download
       const link = document.createElement("a")
       link.href = url
       link.download = "qrcode.svg"
@@ -62,7 +48,6 @@ export function QRCode({
       link.click()
       document.body.removeChild(link)
 
-      // Limpar URL
       URL.revokeObjectURL(url)
     } catch (error) {
       console.error("Erro ao baixar QR Code:", error)
@@ -89,9 +74,13 @@ export function QRCode({
           ) : (
             <div className="bg-white p-4 rounded-lg border">
               {value.startsWith("data:image/") ? (
-                <img src={value} alt="QR Code" style={{ width: size, height: size, display: "block" }} />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img id="qr-code-svg" src={value} alt="QR Code" style={{ width: size, height: size, display: "block" }} />
+                </>
               ) : (
                 <QRCodeSVG
+                  id="qr-code-svg"
                   value={value}
                   size={size}
                   level="M"
